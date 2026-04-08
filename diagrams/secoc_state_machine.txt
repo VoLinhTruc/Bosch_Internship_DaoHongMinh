@@ -1,0 +1,45 @@
+@startuml
+'State machine for key exchange secoOC [SecOC] render with plant uml:
+
+[*] --> RequestDefaultSession
+
+RequestDefaultSession : Send default session request
+RequestDefaultSession : Wait/check response
+RequestDefaultSession --> RequestExtendedSession : positive response
+RequestDefaultSession --> RequestDefaultSession : retry < 3
+RequestDefaultSession --> SecKeyExchangeFail : retry >= 3
+
+RequestExtendedSession : Send extended session request
+RequestExtendedSession : Wait/check response
+RequestExtendedSession --> SecRequestSeedInCar1 : positive response
+RequestExtendedSession --> RequestExtendedSession : retry < 3
+RequestExtendedSession --> SecKeyExchangeFail : retry >= 3
+
+SecRequestSeedInCar1 : Request security seed
+SecRequestSeedInCar1 : Extract seed
+SecRequestSeedInCar1 : Generate ECDSA signature
+SecRequestSeedInCar1 --> SecRequestUnlockInCar1 : positive response
+SecRequestSeedInCar1 --> SecKeyExchangeFail : invalid response
+
+SecRequestUnlockInCar1 : Send unlock request
+SecRequestUnlockInCar1 --> SecCreateShareKey : positive response
+SecRequestUnlockInCar1 --> SecRequestUnlockInCar1 : response pending / retry
+SecRequestUnlockInCar1 --> SecKeyExchangeFail : retry >= 3
+
+SecCreateShareKey : Generate ECDH key pair
+SecCreateShareKey : Send master public key
+SecCreateShareKey : Receive anchor public key
+SecCreateShareKey : Calculate + hash shared key
+SecCreateShareKey --> SecSendEncryptKey : success
+SecCreateShareKey --> SecCreateShareKey : response pending
+SecCreateShareKey --> SecKeyExchangeFail : no/invalid response
+
+SecSendEncryptKey : Encrypt key with AES-CBC
+SecSendEncryptKey : Send encrypted key
+SecSendEncryptKey --> SecKeyExchangeComplete : positive response
+SecSendEncryptKey --> SecSendEncryptKey : retry < 3
+SecSendEncryptKey --> SecKeyExchangeFail : retry >= 3
+
+SecKeyExchangeComplete --> [*]
+SecKeyExchangeFail --> [*]
+@enduml

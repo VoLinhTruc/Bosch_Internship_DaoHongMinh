@@ -1,0 +1,84 @@
+@startuml
+'State machine for: key exchange main function [2] render with plantuml:
+hide empty description
+
+[*] --> PollStatus
+
+state PollStatus : while(true)\nGetStatusKeyExchange(...)
+
+PollStatus --> SecKeyExchangeFail : mStateMachineStep == SecKeyExchangeFail
+PollStatus --> KeyExchangeStart : mStateMachineStep == KeyExchangeStart
+PollStatus --> KeyExchangeStop : mStateMachineStep == KeyExchangeStop
+PollStatus --> KeyExchangeReset : mStateMachineStep == KeyExchangeReset
+PollStatus --> PollStatus : other state / no action
+
+state SecKeyExchangeFail {
+  state "Log failure" as LogFail
+  state "Set state = KeyExchangeStop" as SetStop
+  state "SetStatusKeyExchange(...)" as UpdateStop
+
+  [*] --> LogFail
+  LogFail --> SetStop
+  SetStop --> UpdateStop
+  UpdateStop --> [*]
+}
+
+SecKeyExchangeFail --> PollStatus
+
+state KeyExchangeStart {
+  state "Set state = RequestDefaultSession" as SetReqDefault
+  state "mRunning = true" as SetRunning
+  state "Run full state machine" as RunSM
+
+  state DecisionComplete <<choice>>
+  state SuccessComplete
+  state CheckAnchor5 <<choice>>
+  state SetFinalStop
+  state NextAnchor
+  state RestartExchange
+  state UpdateStatus
+
+  [*] --> SetReqDefault
+  SetReqDefault --> SetRunning
+  SetRunning --> RunSM
+  RunSM --> DecisionComplete
+
+  DecisionComplete --> SuccessComplete : state == SecKeyExchangeComplete
+  DecisionComplete --> [*] : otherwise
+
+  SuccessComplete --> CheckAnchor5
+  CheckAnchor5 --> SetFinalStop : mAnchorIdx == Anchor5
+  CheckAnchor5 --> NextAnchor : otherwise
+
+  SetFinalStop : mStateMachineStep = KeyExchangeStop
+  NextAnchor : mAnchorIdx = mAnchorIdx + 1
+  RestartExchange : mStateMachineStep = KeyExchangeStart
+
+  SetFinalStop --> UpdateStatus
+  NextAnchor --> RestartExchange
+  RestartExchange --> UpdateStatus
+  UpdateStatus : SetStatusKeyExchange(...)
+  UpdateStatus --> [*]
+}
+
+KeyExchangeStart --> PollStatus
+
+state KeyExchangeStop {
+  state "Set state = RequestDefaultSession" as StopToDefault
+  [*] --> StopToDefault
+  StopToDefault --> [*]
+}
+
+KeyExchangeStop --> PollStatus
+
+state KeyExchangeReset {
+  state "Set state = RequestDefaultSession" as ResetToDefault
+  state "Set anchor = Anchor2" as ResetAnchor
+
+  [*] --> ResetToDefault
+  ResetToDefault --> ResetAnchor
+  ResetAnchor --> [*]
+}
+
+KeyExchangeReset --> PollStatus
+@enduml
