@@ -3,7 +3,7 @@
 hide empty members
 
 namespace service {
-  abstract class "Service" as Svc
+  class "Service" as Svc
 
   class "KeyExchange" as KE {
     + KeyExchange(databrokerAddr_Public : string, databrokerAddr_Private : string)
@@ -18,39 +18,12 @@ namespace service {
     - FunctionTest_StateMachineAnchorSecOCKeyExchange() : void
     - StateMachineAnchorSecOCKeyExchange() : void
   }
-
-  enum "KeyExchangeCmd" as KeyExchangeCmd {
-    Start
-    Stop
-  }
-
-  enum "AnchorIdx" as AnchorIdx {
-    Anchor2
-    Anchor3
-    Anchor4
-    Anchor5
-    NotDefined
-  }
-
-  enum "SdvRange" as SdvRange {
-    Range0
-    Range1
-  }
 }
 
-package "cryptography::keyexchange" {
   class "CryptoKeyExchange" as CKX <<utility>> {
-    + ECDHKeyPairsGen_1(...) : int32_t
-    + hashAndTruncate(...) : vector<unsigned char>
-    + GenerateECDSASignature(...) : int32_t
-    + calculateSharedKey(...) : vector<unsigned char>
   }
-}
 
 class "AES128" as AES128 <<utility>> {
-  + GenerateAES_Key(...) : int
-  + AES128_CBCEncryption(...) : int
-  + AES128_CBCDecryption(...) : int
 }
 
 class "Logger" as Logger <<utility>>

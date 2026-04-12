@@ -3,7 +3,25 @@ skinparam classAttributeIconSize 0
 
 namespace service {
 
-class Service
+class Service {
+    + Service(databrokerAddress_Public : DataBrokerAddressType, databrokerAddress_Private : DataBrokerAddressType)
+    + ~Service()
+    + Run() : void
+    + Stop() : void
+    + OnStart() : void
+    + OnStop() : void
+    + Init() : void
+    + CheckConnection() : void
+
+    # mDatabrokerAddress_Public : DataBrokerAddressType
+    # mDatabrokerAddress_Private : DataBrokerAddressType
+    # mPort : PortType
+    # mIp : IpType
+    # mIsRunning : bool = false
+    # mStopWaitMutex : mutex
+    # mStopWaitCV : condition_variable
+    # mStartFlagService : atomic<EServiceState>
+}
 
 class KeyExchange {
     - mPathValueMap : map<string, kuksaclientapi::DataType>
@@ -58,6 +76,13 @@ class KeyExchange {
     - StateMachineAnchorSecOCKeyExchange() : void
 }
 
+enum EServiceState {
+    START
+    STOP
+    RESET
+    ERROR
+}
+
 enum KeyExchangeCmd {
     Start
     Stop
@@ -76,6 +101,10 @@ enum SdvRange {
     Range1
 }
 
+Service ..> "kuksaclientapi::CheckConnection()" : uses
+Service ..> EServiceState
+KeyExchange --|> Service
+
 KeyExchange -- KeyExchangeCmd
 KeyExchange -- AnchorIdx
 KeyExchange -- SdvRange
@@ -83,7 +112,6 @@ KeyExchange -- ThreadPool
 KeyExchange ..> "msg::AnchorIdxType" : uses
 KeyExchange ..> "msg::KeyExchangeStateType" : uses
 KeyExchange ..> "kuksaclientapi::DataType" : uses
-KeyExchange --|> Service
 
 }
 
