@@ -1,0 +1,78 @@
+@startuml SequenceDiagram_SecOCKeyExchange_Process-pending_changes
+autonumber
+
+participant "KeyExchange\nStateMachine" as KE
+participant "CAN TP" as CAN
+participant "Anchor / ECU" as ECU
+participant "Crypto::ECDSA" as ECDSA
+participant "Crypto::ECDH" as ECDH
+participant "Crypto::Hash" as HASH
+participant "AES128_CBC" as AES
+
+== Session setup ==
+KE -> CAN: Tx RequestDefaultSession
+CAN -> ECU: default session request
+ECU --> CAN: positive response
+CAN --> KE: mRes
+
+KE -> CAN: Tx RequestExtendedSession
+CAN -> ECU: extended session request
+ECU --> CAN: positive response
+CAN --> KE: mRes
+
+== Authentication with seed/signature ==
+KE -> CAN: Tx SecRequestSeedInCar1
+CAN -> ECU: seed request
+ECU --> CAN: seed response
+CAN --> KE: mRes (contains seed)
+
+KE -> ECDSA: GenerateECDSASignature(seed, mPrivateKeyBlob, mReqSecUnlockInCar1)
+note right of ECDSA
+Uses long-term key blob:
+public(64) || private(32)
+Returns raw signature r||s
+end note
+ECDSA --> KE: unlock payload with signature
+
+KE -> CAN: Tx SecRequestUnlockInCar1
+CAN -> ECU: signed unlock request
+ECU --> CAN: positive unlock response
+CAN --> KE: mRes
+
+== Ephemeral ECDH key agreement ==
+KE -> ECDH: ECDHKeyPairsGen_1(ecdhKey)
+note right of ECDH
+Returns 96 bytes:
+public(64) || private(32)
+end note
+ECDH --> KE: ecdhKey
+
+KE -> KE: Split into mECDH_pK_Master and mECDH_sK_Master
+KE -> CAN: Tx mKeyExchangeDiag1 + Master public key
+CAN -> ECU: ECDH public key message
+ECU --> CAN: response + Anchor public key
+CAN --> KE: mRes
+
+KE -> KE: Extract mECDH_pK_Anchor from mRes[4..67]
+KE -> ECDH: calculateSharedKey(mECDH_pK_Anchor, mECDH_sK_Master)
+ECDH --> KE: raw shared secret
+
+KE -> HASH: hashAndTruncate(raw shared secret)
+note right of HASH
+SHA-256(sharedSecret)
+truncate to 16 bytes
+=> AES-128 key
+end note
+HASH --> KE: mShareKey (16 bytes)
+
+== Encrypt transported key ==
+KE -> AES: AES128_CBCEncryption(mKey[96], mIV, mShareKey)
+AES --> KE: mEncryptedKey[96]
+
+KE -> CAN: Tx mKeyExchangeDiag2 + encrypted key
+CAN -> ECU: encrypted key payload
+ECU --> CAN: positive response
+CAN --> KE: mRes
+
+KE -> KE: mStateMachineStep = SecKeyExchangeComplete
+@enduml

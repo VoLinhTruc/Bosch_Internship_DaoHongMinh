@@ -1,0 +1,110 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "cantp" {
+  class "CanTp" as CanTp <<utility>> {
+    + TxRequestMsg(data : vector<unsigned char>, anchorIdx : int, dataLength : int, databrokerAddress : string) : void
+    + RxReceiveMsg(data : vector<unsigned char>, anchorIdx : int, databrokerAddress : string) : void
+    + CreateFirstFrame(data : vector<unsigned char>, output : vector<unsigned char>, dataLength : int, databrokerAddress : string) : void
+    + ListenSub(queue : ThreadSafeQueue<KuksaClientAPIType>, stopFlag : atomic<bool>, count : int) : void
+    + SendConsecutiveFrames(data : vector<unsigned char>, flowControlData : vector<unsigned char>, anchorIdx : int, databrokerAddress : string) : void
+    + WaitForEve(anchorIdx : int, stopFlag : atomic<bool>, count : int, databrokerAddress : string) : void
+    + TxMultiFrameHandler(data : vector<unsigned char>, anchorIdx : int, databrokerAddress : string) : void
+    + RxMultiFrameHandler(data : vector<unsigned char>, anchorIdx : int, databrokerAddress : string) : void
+    + LogReceivedData(data : vector<unsigned char>, context : string) : void
+    + ClearResMessageFromCan(anchorIdx : uint8_t, databrokerAddress : string) : void
+    + ClearReqMessageFromCan(anchorIdx : uint8_t, databrokerAddress : string) : void
+  }
+}
+
+package "kuksaclientapi" {
+  class "KuksaClientAPI" as Kuksa <<utility>> {
+    + GetAPI_v1(address : ServerAddressType, path : PathAPIType, actuatorTargetValue : DataType) : KuksaClientReturnCodeType
+    + GetMultipleSignalAPI_v1(address : ServerAddressType, pathAndActuatorTargetValueMap : KuksaClientAPIType) : KuksaClientReturnCodeType
+    + SetAPI_v1(address : ServerAddressType, path : PathAPIType, value : DataType) : KuksaClientReturnCodeType
+    + SetMultipleSignalAPI_v1(address : ServerAddressType, pathValueMap : KuksaClientAPIType) : KuksaClientReturnCodeType
+    + FeedAPI_v1(address : ServerAddressType, path : PathAPIType, value : DataType) : KuksaClientReturnCodeType
+    + FeedMultipleSignalAPI_v1(address : ServerAddressType, pathValueMap : KuksaClientAPIType) : KuksaClientReturnCodeType
+    + SubAPI_v1(address : ServerAddressType, path : PathAPIType, queue : ThreadSafeQueue<DataType>, stopFlag : StopFlagType) : KuksaClientReturnCodeType
+    + SubMultipleSignalAPI_v1(address : ServerAddressType, paths : PathAPIVectorType, queue : ThreadSafeQueue<KuksaClientAPIType>, stopFlag : StopFlagType) : KuksaClientReturnCodeType
+    + SubMultipleSignalAPIforCANProvider(address : ServerAddressType, channel : Channel, paths : PathAPIVectorType, queue : ThreadSafeQueue<KuksaClientAPIType>, stopFlag : StopFlagType) : KuksaClientReturnCodeType
+    + CheckConnection(serverAddress : ServerAddressType) : KuksaClientReturnCodeType
+  }
+}
+
+class "ThreadSafeQueue<T>" as TSQ {
+  + Enqueue(item : T) : void
+  + Dequeue() : T
+  + Dequeue(timeout : milliseconds) : T
+  + IsEmpty() : bool
+  - mQueue : queue<T>
+  - mMtx : mutex
+  - mCv : condition_variable
+}
+
+class "ThreadPool" as TP {
+  + ThreadPool(numThreads : size_t)
+  + ~ThreadPool()
+  + Enqueue(priority : int, f, args) : future
+  + EnqueueJob(priority : int, job : JobPtr_t) : future<void>
+  + Stop() : void
+  + JoinAll() : void
+  + getNumWorkerThreads() : size_t
+}
+
+class "Logger" as Logger {
+  + log(level : Level, message : string) : void
+  - levelToString(level : Level) : string
+  - getMutex() : mutex
+}
+
+enum "Logger::Level" as LogLevel {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
+}
+
+class "KeyExchange" as KE
+class "Data Broker / CAN Signal Paths" as DB <<external>>
+class "gRPC / VAL Stub" as GRPC <<external>>
+
+Logger -- LogLevel
+
+CanTp ..> Kuksa : get/set subscribed CAN signals
+CanTp ..> TSQ : subscription queue handling
+CanTp ..> TP : dependency/include
+CanTp ..> Logger : logs TX/RX/status
+CanTp ..> DB : reads/writes request/response frames
+
+Kuksa ..> TSQ : delivers subscription updates
+Kuksa ..> Logger : logs RPC status/errors
+Kuksa ..> GRPC : creates stub / subscribe / get / set
+Kuksa ..> DB : accesses broker values
+
+KE ..> CanTp : uses for multi-frame communication
+
+note right of CanTp
+  Responsibility:
+  - segment payload into CAN-TP frames
+  - send single frame / first frame / consecutive frames
+  - receive and reassemble multi-frame responses
+  - handle flow control and timeouts
+  - clear CAN request/response buffers
+end note
+
+note right of Kuksa
+  Responsibility:
+  - abstract Data Broker access
+  - get / set / feed signals
+  - subscribe to signal updates
+  - push received updates into thread-safe queues
+end note
+
+note bottom of TSQ
+  Producer-consumer queue used by
+  subscription/listener workflows
+end note
+
+@enduml

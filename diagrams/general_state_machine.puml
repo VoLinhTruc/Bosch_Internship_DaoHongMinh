@@ -1,5 +1,4 @@
-@startuml
-'State machine for: key exchange main function [2] render with plantuml:
+@startuml StateMachineDiagram_keyExchangeMainProcess
 hide empty description
 
 [*] --> PollStatus

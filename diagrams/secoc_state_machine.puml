@@ -1,5 +1,4 @@
-@startuml
-'State machine for key exchange secoOC [SecOC] render with plant uml:
+@startuml StateMachineDiagram_SecOCKeyCreationProcess
 
 [*] --> RequestDefaultSession
 

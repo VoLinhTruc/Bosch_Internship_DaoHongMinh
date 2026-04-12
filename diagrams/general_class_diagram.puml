@@ -1,0 +1,95 @@
+@startuml RelationBetweenClasses
+'skinparam classAttributeIconSize 0
+hide empty members
+
+namespace service {
+  abstract class "Service" as Svc
+
+  class "KeyExchange" as KE {
+    + KeyExchange(databrokerAddr_Public : string, databrokerAddr_Private : string)
+    + ~KeyExchange()
+    + OnStart() : void
+    + Init() : void
+
+    - InitializeParameters() : void
+    - KeyExchangeAnchor() : void
+    - InitDataService() : void
+    - EnqueueMessage(keyExchangeStatus) : void
+    - FunctionTest_StateMachineAnchorSecOCKeyExchange() : void
+    - StateMachineAnchorSecOCKeyExchange() : void
+  }
+
+  enum "KeyExchangeCmd" as KeyExchangeCmd {
+    Start
+    Stop
+  }
+
+  enum "AnchorIdx" as AnchorIdx {
+    Anchor2
+    Anchor3
+    Anchor4
+    Anchor5
+    NotDefined
+  }
+
+  enum "SdvRange" as SdvRange {
+    Range0
+    Range1
+  }
+}
+
+package "cryptography::keyexchange" {
+  class "CryptoKeyExchange" as CKX <<utility>> {
+    + ECDHKeyPairsGen_1(...) : int32_t
+    + hashAndTruncate(...) : vector<unsigned char>
+    + GenerateECDSASignature(...) : int32_t
+    + calculateSharedKey(...) : vector<unsigned char>
+  }
+}
+
+class "AES128" as AES128 <<utility>> {
+  + GenerateAES_Key(...) : int
+  + AES128_CBCEncryption(...) : int
+  + AES128_CBCDecryption(...) : int
+}
+
+class "Logger" as Logger <<utility>>
+class "ThreadPool" as ThreadPool
+class "Message Handler" as MsgHandler
+class "CAN TP" as CanTp
+class "Data Broker / Kuksa API" as Kuksa
+
+KE --|> Svc
+KE -- KeyExchangeCmd
+KE -- AnchorIdx
+KE -- SdvRange
+
+KE --> ThreadPool : manages
+KE ..> MsgHandler : exchanges status/messages
+KE ..> CanTp : transports diagnostic frames
+KE ..> Kuksa : updates service state
+KE ..> CKX : performs crypto operations
+KE ..> AES128 : encrypts payload
+KE ..> Logger : logs events
+
+CKX ..> AES128 : uses symmetric crypto support
+CKX ..> Logger : logs
+
+note right of KE
+  High-level responsibilities:
+  - manage key exchange workflow
+  - coordinate state machine
+  - communicate with anchor/ECU
+  - invoke cryptographic operations
+  - update external service status
+end note
+
+note right of CKX
+  High-level crypto services:
+  - ECDH key generation
+  - shared key derivation
+  - ECDSA signing
+  - hash-based key processing
+end note
+
+@enduml

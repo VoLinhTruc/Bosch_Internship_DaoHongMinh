@@ -1,0 +1,53 @@
+@startuml CryptographyClasses
+
+package "Cryptography::keyexchange" {
+    class "CryptoKeyExchange" as CKX <<utility>> {
+        + ECDHKeyPairsGen_1(privateKeyBlob: vector<unsigned char>&) : int [status]
+        + hashAndTruncate(input : const vector<unsigned char>&) : vector<unsigned char> [16 byte size]
+        + GenerateECDSASignature(rawData : const vector<unsigned char>&, privateKeyBlob : const vector<unsigned char>&, r_s : vector<unsigned char>&) : int
+        + calculateSharedKey(publicKeyAnchor : const vector<unsigned char>&, privateKey : const vector<unsigned char>&) : vector<unsigned char>
+    }
+}
+
+class "AES128" as AES128 <<utility>> {
+    + GenerateAES_Key(sharedSecretKey : uint8_t*, len_input : int, AES_Key : uint8_t*) : int
+    + AES128_CBCEncryption(AES_PlainText : uint8_t*, AES_PlainText_len : int, AES_CipherText : uint8_t*, AES_IV : uint8_t*, AES_EncryptKey : uint8_t*) : int
+    + AES128_CBCDecryption(AES_CipherText : uint8_t*, AES_CipherText_len : int, AES_PlainText : uint8_t*, AES_IV : uint8_t*, AES_DecryptKey : uint8_t*) : int
+}
+
+class "Logger" as Logger {
+    + log(level : Level, message : const string&) : void
+    - levelToString(level : Level) : string
+    - getMutex() : mutex&
+}
+
+enum "Logger::Level" as LogLevel {
+        DEBUG   
+        INFO  
+        WARNING
+        ERROR
+}
+
+class "OpenSSL EVP/EC API" as OpenSSL <<external>>
+
+Logger -- LogLevel
+CKX ..> Logger : Logs errors/status
+CKX ..> AES128 : includes header
+CKX ..> OpenSSL : uses EVP, EDCSA, SHA256, BIGNUM
+AES128 ..> OpenSSL: uses EVP AES/SHA256
+
+note right of CKX
+    responsibility:
+        - ECDH keypair generation
+        - ECDSA signature generation
+        - ECDH shared key derivation
+        - SHA256 hash and truncation for AES key
+
+        key formats:
+        - Public key = 64 bytes (X || Y)
+        - Private key = 32 bytes
+        - Private Key blob (key pair blob) = 97 bytes
+        - Truncate hash = 16 bytes
+end note
+
+@enduml
