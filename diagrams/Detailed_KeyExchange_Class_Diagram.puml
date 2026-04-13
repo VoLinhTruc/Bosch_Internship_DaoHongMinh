@@ -115,4 +115,35 @@ KeyExchange ..> "kuksaclientapi::DataType" : uses
 
 }
 
+package "network_config" {
+class Config <<utility>> {
+    + DATABROKER_ADDR_PUBLIC : string = "127.0.0.1:55555"
+    + DATABROKER_ADDR_PRIVATE : string = "192.168.56.101:55555"
+    + FUNCTION_TYPE : int = 2
+    + LOGGER_ENABLED : macro
+    + U8(x)
+    + U16(x)
+    + U32(x)
+    + I32(x)
+    + F32(x)
+    + GU8(x)
+    + GU16(x)
+    + GU32(x)
+    + GI8(x)
+    + GI32(x)
+    + GF32(x)
+}
+}
+
+service::Service ..> Config : uses broker addresses
+service::KeyExchange ..> Config : uses FUNCTION_TYPE\nand broker addresses
+
+note right of Config
+  Network / build configuration:
+  - public databroker endpoint
+  - private databroker endpoint
+  - function variant selection
+  - helper cast/access macros
+end note
+
 @enduml

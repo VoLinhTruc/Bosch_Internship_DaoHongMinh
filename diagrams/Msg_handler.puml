@@ -1,0 +1,149 @@
+@startuml MsgHandlerDiagram
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "msg" {
+
+  class "MsgHandler" as MsgHandler <<utility>> {
+    + SetMessageToCan(address : ServerAddressType, message : KuksaClientAPIType) : Status
+    + GetMessageFromCan(address : ServerAddressType, message : KuksaClientAPIType) : Status
+    + FeedVehicleAPI(address : ServerAddressType, message : KuksaClientAPIType) : Status
+
+    + MasterNmCyclic(address : ServerAddressType, running : atomic<bool>, period : int) : void
+    + SysCtrlM2ACyclic(running : atomic<bool>, period : int) : void
+    + TimeSyncMasterCyclic(running : atomic<bool>, databrokerAddress : ServerAddressType) : void
+
+    + GetStatusKeyExchange(address : ServerAddressType, keyExchangeStatus : KeyExchangeStateType, anchorIdx : AnchorIdxType) : Status
+    + SetStatusKeyExchange(address : ServerAddressType, keyExchangeStatus : KeyExchangeStateType, anchorIdx : AnchorIdxType) : Status
+  }
+
+  class "MsgHandlerTypes" as MsgTypes <<utility>> {
+    + KeyExchangeStateType : uint8_t
+    + AnchorIdxType : uint32_t
+    + INIT_VAL : uint8_t = 0x00
+  }
+
+  class "MsgHandlerUtils" as MsgUtils <<utility>> {
+    + GetAs<T>(var : DataType) : T
+    + ToU32(var : DataType) : uint32_t
+    + ToU8(var : DataType) : uint8_t
+    + ToString(var : DataType) : string
+    + GetFromMapAs<T>(map : KuksaClientAPIType, key : PathAPIType) : T
+  }
+
+  enum "Status" as Status {
+    MSG_SUCCESS
+    MSG_ERROR
+    MSG_PENDING
+  }
+
+  enum "KeyExchangeState" as KeyExchangeState {
+    RequestDefaultSession
+    RequestExtendedSession
+    SecRequestSeedInCar1
+    SecRequestUnlockInCar1
+    SecCreateShareKey
+    SecSendEncryptKey
+    SecKeyExchangeComplete
+    KeyExchangeStart
+    KeyExchangeStop
+    KeyExchangeReset
+    KeyExchangeInit
+    SecKeyExchangeFail
+  }
+
+  enum "AnchorIdx" as AnchorIdx {
+    NotDefined
+    Anchor2
+    Anchor3
+    Anchor4
+    Anchor5
+  }
+
+package "kuksaclientapi" {
+  class "KuksaClientAPI" as Kuksa <<utility>> {
+    + GetAPI_v1(...) : KuksaClientReturnCodeType
+    + GetMultipleSignalAPI_v1(...) : KuksaClientReturnCodeType
+    + SetAPI_v1(...) : KuksaClientReturnCodeType
+    + SetMultipleSignalAPI_v1(...) : KuksaClientReturnCodeType
+    + FeedAPI_v1(...) : KuksaClientReturnCodeType
+    + FeedMultipleSignalAPI_v1(...) : KuksaClientReturnCodeType
+    + SubAPI_v1(...) : KuksaClientReturnCodeType
+    + SubMultipleSignalAPI_v1(...) : KuksaClientReturnCodeType
+    + SubMultipleSignalAPIforCANProvider(...) : KuksaClientReturnCodeType
+    + CheckConnection(...) : KuksaClientReturnCodeType
+  }
+}
+
+class "Logger" as Logger {
+  + log(level : Level, message : string) : void
+}
+
+enum "Logger::Level" as LogLevel {
+  DEBUG
+  INFO
+  WARNING
+  ERROR
+}
+
+class "NetworkConfig" as Config <<utility>> {
+  + DATABROKER_ADDR_PUBLIC : string
+  + DATABROKER_ADDR_PRIVATE : string
+  + U8(x)
+  + U16(x)
+  + U32(x)
+  + I32(x)
+  + F32(x)
+  + GU8(x)
+  + GU16(x)
+  + GU32(x)
+  + GI8(x)
+  + GI32(x)
+  + GF32(x)
+}
+
+class "KeyExchange" as KeyExchange
+class "Service" as Service
+class "Data Broker / Vehicle Signals" as DB <<external>>
+
+Logger -- LogLevel
+
+MsgHandler ..> Kuksa : get/set/feed signals
+MsgHandler ..> MsgTypes : uses aliases/enums
+MsgHandler ..> MsgUtils : converts DataType values
+MsgHandler ..> Logger : logs failures/status
+MsgHandler ..> Config : macros / broker config
+MsgHandler ..> DB : reads/writes vehicle paths
+
+MsgUtils ..> MsgTypes : uses DataType,\nKuksaClientAPIType,\nPathAPIType
+MsgTypes ..> Kuksa : aliases Kuksa types
+
+MsgHandler ..> Status
+MsgHandler ..> KeyExchangeState
+MsgHandler ..> AnchorIdx
+
+KeyExchange ..> MsgHandler : key exchange status control
+Service ..> MsgHandler : service state interaction
+
+note right of MsgHandler
+  Responsibility groups:
+  - generic CAN/Data Broker message access
+  - service status management
+  - key exchange status handling
+  - periodic cyclic message tasks
+end note
+
+note right of MsgUtils
+  Variant conversion helpers:
+  - DataType -> uint32_t
+  - DataType -> uint8_t
+  - DataType -> string
+  - typed extraction from API maps
+end note
+
+note bottom of MsgTypes
+  Centralized domain aliases and enums
+  shared across msg handler APIs
+end note
+
+@enduml

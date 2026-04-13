@@ -1,5 +1,4 @@
 @startuml RelationBetweenClasses
-'skinparam classAttributeIconSize 0
 hide empty members
 
 namespace service {
@@ -20,33 +19,64 @@ namespace service {
   }
 }
 
-  class "CryptoKeyExchange" as CKX <<utility>> {
-  }
-
-class "AES128" as AES128 <<utility>> {
+package "cryptography::keyexchange" {
+  class "CryptoKeyExchange" as CKX <<utility>>
 }
 
+class "AES128" as AES128 <<utility>>
 class "Logger" as Logger <<utility>>
 class "ThreadPool" as ThreadPool
-class "Message Handler" as MsgHandler
-class "CAN TP" as CanTp
-class "Data Broker / Kuksa API" as Kuksa
+class "Message Handler" as MsgHandler <<utility>>
+class "CAN TP" as CanTp <<utility>>
+class "Data Broker / Kuksa API" as Kuksa <<utility>>
+class "utils" as Utils <<utility>>
+
+package "ijob" {
+  interface "IJob" as IJob
+  class "Job" as Job
+  class "RecurringJob" as RecurringJob
+}
+
+package "uds" {
+  enum "uds_sid_t" as UdsSid
+  enum "uds_nrc_t" as UdsNrc
+}
+
+enum "KeyExchangeCmd" as KeyExchangeCmd
+enum "AnchorIdx" as AnchorIdx
 
 KE --|> Svc
 KE -- KeyExchangeCmd
 KE -- AnchorIdx
-KE -- SdvRange
 
-KE --> ThreadPool : manages
+KE --> ThreadPool : manages worker tasks
 KE ..> MsgHandler : exchanges status/messages
 KE ..> CanTp : transports diagnostic frames
 KE ..> Kuksa : updates service state
 KE ..> CKX : performs crypto operations
 KE ..> AES128 : encrypts payload
 KE ..> Logger : logs events
+KE ..> Utils : configuration/helpers
+KE ..> UdsSid : checks SID values
+KE ..> UdsNrc : checks NRC values
 
-CKX ..> AES128 : uses symmetric crypto support
+ThreadPool ..> Job : executes
+ThreadPool ..> RecurringJob : executes recurring jobs
+ThreadPool ..> IJob : generic job interface
+Job --|> IJob
+RecurringJob --|> Job
+
+CKX ..> AES128 : symmetric crypto support
 CKX ..> Logger : logs
+
+MsgHandler ..> Kuksa : broker access
+CanTp ..> Kuksa : CAN signal transport via broker
+CanTp ..> ThreadPool : dependency
+CanTp ..> Logger : logs
+
+Svc ..> Kuksa : connection check
+Svc ..> Logger : logs
+Svc ..> Utils : address/argument helpers
 
 note right of KE
   High-level responsibilities:
@@ -63,6 +93,16 @@ note right of CKX
   - shared key derivation
   - ECDSA signing
   - hash-based key processing
+end note
+
+note bottom of ThreadPool
+  ThreadPool schedules and runs jobs
+  defined by the ijob module
+end note
+
+note bottom of UdsNrc
+  UDS enums provide protocol constants
+  used by KeyExchange state handling
 end note
 
 @enduml
