@@ -1,0 +1,108 @@
+@startuml
+title Python Key Exchange Library - Data Flow
+
+skinparam activity {
+  BackgroundColor #F8F9FB
+  BorderColor #374151
+  FontColor #111827
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #B45309
+}
+skinparam ArrowColor #374151
+
+start
+
+partition "Caller / Host Application" #E8F3FF {
+  :Read CAN signals from bus, DBC, KUKSA, or test fixture;
+  note right
+    Input to library:
+
+    dict[str, int]
+
+    Example:
+    {
+      "TesterPhysicalResAnchor2_Frame1": 0x...
+      "TesterPhysicalResAnchor2_Frame2": 0x...
+    }
+  end note
+
+  :Call KeyExchangeEngine.process(input_signals);
+}
+
+partition "Python Key Exchange Library" #F1F8E9 {
+
+  partition "CAN Signal Translation" {
+    :Select response paths for current anchor;
+    :Extract uint64 frame values;
+    :Unpack uint64 values into byte stream;
+
+    note right
+      Converts:
+      CAN signal values
+      -> raw frame bytes
+      -> UDS response bytes
+    end note
+  }
+
+  partition "Protocol State Machine" {
+    if (Waiting for response?) then (yes)
+      :Validate UDS response SID;
+      :Update key exchange state;
+    else (no)
+      :Use current state to build next UDS request;
+    endif
+  }
+
+  partition "Cryptography" {
+    if (Need seed unlock?) then (yes)
+      :Sign seed with ECDSA private key;
+      :Build 27 66 + signature;
+    elseif (Need shared key?) then (yes)
+      :Generate ECDH key pair;
+      :Build 31 01 FB 40 + master public key;
+    elseif (Need encrypted key?) then (yes)
+      :Derive shared key from anchor public key;
+      :Hash and truncate shared key;
+      :AES encrypt key material;
+      :Build 31 01 FB 41 + encrypted key;
+    else (no crypto needed)
+      :Build simple UDS request;
+    endif
+  }
+
+  partition "CAN Signal Translation" {
+    :Pack UDS request bytes into uint64 frame chunks;
+    :Map chunks to request signal paths for current anchor;
+
+    note right
+      Converts:
+      UDS request bytes
+      -> uint64 frame values
+      -> CAN signal map
+    end note
+  }
+
+  :Return output_signals;
+}
+
+partition "Caller / Host Application" #E8F3FF {
+  :Write output CAN signals to bus, DBC, KUKSA, or test fixture;
+
+  note right
+    Output from library:
+
+    dict[str, int]
+
+    Example:
+    {
+      "TesterPhysicalReqAnchor2_Frame1": 0x...
+      "TesterPhysicalReqAnchor2_Frame2": 0x...
+    }
+  end note
+}
+
+stop
+
+@enduml

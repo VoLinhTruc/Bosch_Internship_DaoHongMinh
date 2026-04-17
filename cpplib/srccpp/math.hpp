@@ -1,7 +1,4 @@
-#ifndef CPPLIB_MATH_HPP
-#define CPPLIB_MATH_HPP
+#pragma once
 
 int add(int a, int b);
 int subtract(int a, int b);
-
-#endif
