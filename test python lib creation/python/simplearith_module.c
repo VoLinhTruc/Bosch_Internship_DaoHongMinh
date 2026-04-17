@@ -14,8 +14,12 @@ static PyObject* status_to_exception(arith_status status) {
         case ARITH_ERR_DIV_BY_ZERO:
             PyErr_SetString(PyExc_ZeroDivisionError, message);
             break;
-        case ARITH_ERR_SIZE_MISMATCH:
+        case ARITH_ERR_OVERFLOW:
+            PyErr_SetString(PyExc_OverflowError, message);
+            break;
         case ARITH_ERR_INVALID_ARGUMENT:
+        case ARITH_ERR_SIZE_MISMATCH:
+        case ARITH_ERR_NEGATIVE_INPUT:
             PyErr_SetString(PyExc_ValueError, message);
             break;
         case ARITH_ERR_NULL_POINTER:
@@ -30,11 +34,12 @@ static PyObject* status_to_exception(arith_status status) {
 }
 
 static int parse_double_sequence(PyObject* obj, double** out_values, Py_ssize_t* out_count) {
-    PyObject* seq = PySequence_Fast(obj, "expected a sequence of numbers");
+    PyObject* seq = NULL;
     Py_ssize_t count;
     Py_ssize_t i;
-    double* values;
+    double* values = NULL;
 
+    seq = PySequence_Fast(obj, "expected a sequence of numbers");
     if (seq == NULL) {
         return 0;
     }
@@ -49,12 +54,13 @@ static int parse_double_sequence(PyObject* obj, double** out_values, Py_ssize_t*
 
     for (i = 0; i < count; ++i) {
         PyObject* item = PySequence_Fast_GET_ITEM(seq, i);
-        values[i] = PyFloat_AsDouble(item);
+        double value = PyFloat_AsDouble(item);
         if (PyErr_Occurred()) {
             free(values);
             Py_DECREF(seq);
             return 0;
         }
+        values[i] = value;
     }
 
     Py_DECREF(seq);
@@ -151,6 +157,7 @@ static PyObject* py_divide(PyObject* self, PyObject* args) {
     return PyFloat_FromDouble(out);
 }
 
+
 static PyObject* py_dot(PyObject* self, PyObject* args) {
     PyObject* left_obj;
     PyObject* right_obj;
@@ -240,6 +247,7 @@ static PyObject* py_vector_add(PyObject* self, PyObject* args) {
     return list;
 }
 
+
 static PyMethodDef simplearith_methods[] = {
     {"add", py_add, METH_VARARGS, "Add two numbers."},
     {"subtract", py_subtract, METH_VARARGS, "Subtract two numbers."},
@@ -253,7 +261,7 @@ static PyMethodDef simplearith_methods[] = {
 static struct PyModuleDef simplearith_module = {
     PyModuleDef_HEAD_INIT,
     "simplearith",
-    "Small arithmetic extension module implemented in C.",
+    "Arithmetic library implemented in C and built with CMake.",
     -1,
     simplearith_methods
 };
@@ -277,4 +285,9 @@ PyMODINIT_FUNC PyInit_simplearith(void) {
     }
 
     return module;
+}
+
+static void main(){
+    printf("able to build");
+    return 0;
 }
