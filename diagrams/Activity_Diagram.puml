@@ -1,0 +1,197 @@
+@startuml
+title KeyExchange / CAN Stack Data Flow: Normal Signals vs UDS PDUs
+
+skinparam activity {
+  BackgroundColor #F8F9FB
+  BorderColor #374151
+  FontColor #111827
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #B45309
+}
+skinparam ArrowColor #374151
+
+start
+
+partition "KeyExchange Service" {
+  :Build UDS command bytes;
+  note right
+    Data type:
+    UDS payload bytes
+    e.g. 10 01, 27 65,
+    31 01 FB 40 + ECDH key
+  end note
+
+  :Create uds::service::UdsRequest;
+}
+
+partition "UDS Service" {
+  :ConvertToCanTpPdu(UdsRequest);
+  note right
+    Data type:
+    CanTP_Pdu_StructType
+
+    Important fields:
+    - canTpParamVectorData = UDS bytes
+    - canTpDlc = UDS length
+    - databrokerAddr = private VDB
+    - pathsBase = frame signal map
+  end note
+}
+
+partition "KeyExchange Pool API" {
+  :PrepareAllFramesForAnchor(anchorIdx, udsData, request);
+  note right
+    Data type conversion:
+    UDS bytes -> normal VSS signal values
+
+    Output:
+    map<string path, uint64_t value>
+
+    Example paths:
+    Vehicle.Body.PK.TesterPhysicalReqAnchor2_Frame1
+    ...
+    Vehicle.Body.PK.TesterPhysicalReqAnchor2_Frame8
+  end note
+}
+
+partition "CanTpManager / CanTp Database" {
+  :CanTp_SetTxPduData(PDU);
+  :CanTp_MainFunctionTx();
+}
+
+partition "CanTpPrimitivesProcessing" {
+  if (PDU payload length <= 7 bytes?) then (single frame)
+    :Prepare CAN-TP Single Frame;
+    note right
+      Data type:
+      CAN-TP frame bytes carrying UDS
+    end note
+  else (segmented)
+    :Prepare CAN-TP First Frame;
+    :Prepare Consecutive Frames;
+    note right
+      Data type:
+      CAN-TP segmented frames carrying UDS
+    end note
+  endif
+}
+
+partition "CanIf TX" {
+  :CanIf_Transmit(TxPduData);
+  :FeedMultipleSignalAPI_v1(databrokerAddr, *pathsBase);
+  note right
+    Data type at CanIf/DataBroker boundary:
+    normal VSS signals
+
+    The CAN-TP/UDS data has been encoded
+    into uint64_t signal values.
+  end note
+}
+
+partition "Private DataBroker / CAN Provider" {
+  :Private VSS ReqAnchorN_FrameX signals updated;
+  :CANProvider maps normal VSS signals to CAN frame(s);
+  :CAN frame sent to anchor;
+}
+
+partition "Anchor / ECU" {
+  :Receive CAN frame(s);
+  :Reassemble UDS request;
+  :Process UDS service;
+  :Build UDS response;
+  :Send CAN response frame(s);
+}
+
+partition "Private DataBroker / CAN Provider" {
+  :CANProvider receives CAN response;
+  :Publish response as normal VSS signals;
+  note right
+    Data type:
+    normal VSS signal values
+
+    Example paths:
+    Vehicle.Body.PK.TesterPhysicalResAnchor2_Frame1
+    ...
+    Vehicle.Body.PK.TesterPhysicalResAnchor2_Frame8
+  end note
+}
+
+partition "KeyExchange Service" {
+  :SetRxFilterPaths(response paths for current anchor);
+}
+
+partition "CanTpManager / CanTp Database" {
+  :CanTp_MainFunctionRx();
+}
+
+partition "CanIf RX" {
+  :CanIf_RxIndication(RxPduData, CanTpStatus);
+  :CanIf_GetRxData(...);
+  :GetMultipleSignalAPI_v1(private VDB, subscription paths);
+
+  note right
+    Data type conversion:
+    normal VSS signal values -> raw CAN-TP frame bytes
+
+    CanIf filters:
+    - only paths containing "Res"
+    - optional current-anchor RX filter
+    - stops on first zero value
+  end note
+}
+
+partition "CanTpPrimitivesProcessing" {
+  if (Frame PCI type?) then (SF)
+    :Strip Single Frame PCI;
+  elseif (FF)
+    :Handle First Frame;
+  elseif (CF)
+    :Handle Consecutive Frame;
+  else (unknown/empty)
+    :Ignore or mark empty/error;
+  endif
+
+  note right
+    Data type:
+    reassembled UDS response bytes
+    in canTpParamVectorData
+  end note
+}
+
+partition "CanTpManager / CanTp Database" {
+  :Store RX PDU;
+  :CanTp_GetRxPduData();
+}
+
+partition "KeyExchange State Machine" {
+  :Read mRxPduData->canTpParamVectorData;
+  note right
+    Data type:
+    UDS response bytes
+
+    Examples:
+    50 01 = positive default session
+    67 65 + seed = security seed
+    71 01 FB 40 + anchor public key
+  end note
+
+  if (Positive UDS response?) then (yes)
+    :Advance KeyExchange state;
+    :SetStatusKeyExchange(public VDB);
+    note right
+      Data type:
+      normal public status signals
+
+      Vehicle.Body.PK.KeyExchangeStatusAnchor
+      Vehicle.Body.PK.KeyExchangeAnchorIdx
+    end note
+  else (no)
+    :Set KEYEXCHANGE_FAIL;
+  endif
+}
+
+stop
+
+@enduml

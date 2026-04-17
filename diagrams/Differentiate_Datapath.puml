@@ -1,0 +1,192 @@
+@startuml
+title KeyExchange Data Paths: Public Status Signals vs Private Frame Datapool Signals
+
+skinparam activity {
+  BackgroundColor #F8F9FB
+  BorderColor #374151
+  FontColor #111827
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #B45309
+}
+skinparam ArrowColor #374151
+
+start
+
+partition "KeyExchange State Machine" {
+  :Run protocol state;
+  note right
+    Internal data:
+    - msg::KeyExchangeStateType
+    - msg::AnchorIdxType
+    - UDS command bytes
+    - crypto buffers
+  end note
+
+  fork
+    partition "PUBLIC STATUS PATH" #E8F3FF {
+      :SetStatusKeyExchange(publicAddr, state, anchorIdx);
+
+      note right
+        Purpose:
+        UI/service progress reporting only.
+
+        Data type:
+        normal application status values.
+
+        Not CAN payload.
+        Not UDS payload.
+      end note
+
+      :Build public VSS map;
+
+      note right
+        Public VSS signals:
+
+        Vehicle.Body.PK.KeyExchangeStatusAnchor
+        Vehicle.Body.PK.KeyExchangeAnchorIdx
+      end note
+
+      :FeedVehicleAPI(public DataBroker, public status map);
+
+      partition "Public DataBroker" #E8F3FF {
+        :Store latest key exchange state;
+        :Store current anchor index;
+      }
+
+      partition "Dashboard / Other Services" #E8F3FF {
+        :GetStatusKeyExchange(publicAddr);
+        :Update progress bar / anchor color;
+        :Enable next feature when complete;
+      }
+    }
+
+  fork again
+
+    partition "PRIVATE FRAME DATAPOOL PATH" #F1F8E9 {
+      :Build UDS request bytes;
+
+      note right
+        Examples:
+        - 10 01
+        - 10 03
+        - 27 65
+        - 27 66 + ECDSA signature
+        - 31 01 FB 40 + ECDH public key
+        - 31 01 FB 41 + encrypted key
+      end note
+
+      :Create UdsRequest;
+      :ConvertToCanTpPdu(UdsRequest);
+
+      note right
+        PDU type:
+        CanTP_Pdu_StructType
+
+        Important field:
+        canTpParamVectorData = UDS bytes
+      end note
+
+      :PrepareAllFramesForAnchor(anchorIdx, udsBytes, request=true);
+
+      note right
+        Converts bytes into private frame datapool values.
+
+        Output type:
+        map<VSS path, uint64_t>
+
+        Each uint64_t is one 8-byte chunk.
+      end note
+
+      :Attach frame path map to PDU.pathsBase;
+
+      partition "CanTpManager / CanTp TX" #F1F8E9 {
+        :CanTp_SetTxPduData(PDU);
+        :CanTp_MainFunctionTx();
+        :CanTpPrimitivesProcessing handles SF/FF/CF;
+      }
+
+      partition "CanIf TX" #F1F8E9 {
+        :CanIf_Transmit(PDU);
+        :FeedMultipleSignalAPI_v1(privateAddr, *PDU.pathsBase);
+
+        note right
+          Private request VSS signals:
+
+          Vehicle.Body.PK.TesterPhysicalReqAnchor2_Frame1..8
+          Vehicle.Body.PK.TesterPhysicalReqAnchor3_Frame1..8
+          Vehicle.Body.PK.TesterPhysicalReqAnchor4_Frame1..8
+          Vehicle.Body.PK.TesterPhysicalReqAnchor5_Frame1..8
+        end note
+      }
+
+      partition "Private DataBroker" #F1F8E9 {
+        :Store request frame datapool signals;
+      }
+
+      partition "CAN Provider / CAN Bus / Anchor" #F1F8E9 {
+        :Read private ReqAnchorN_FrameX signals;
+        :Transmit CAN/CAN-FD frame(s);
+        :Anchor processes UDS request;
+        :Anchor sends UDS response in CAN/CAN-FD frame(s);
+        :Publish response frame values to private DataBroker;
+      }
+
+      partition "Private DataBroker" #F1F8E9 {
+        :Store response frame datapool signals;
+
+        note right
+          Private response VSS signals:
+
+          Vehicle.Body.PK.TesterPhysicalResAnchor2_Frame1..8
+          Vehicle.Body.PK.TesterPhysicalResAnchor3_Frame1..8
+          Vehicle.Body.PK.TesterPhysicalResAnchor4_Frame1..8
+          Vehicle.Body.PK.TesterPhysicalResAnchor5_Frame1..8
+        end note
+      }
+
+      partition "CanTpManager / CanIf RX" #F1F8E9 {
+        :SetRxFilterPaths(current anchor response paths);
+        :CanTp_MainFunctionRx();
+        :CanIf_RxIndication(PDU);
+        :CanIf_GetRxData();
+
+        note right
+          Reads private response VSS signal values.
+
+          Decodes:
+          uint64_t frame values
+          -> byte stream
+          -> PDU.canTpParamVectorData
+        end note
+      }
+
+      partition "CanTp RX / UDS Response" #F1F8E9 {
+        :CanTpPrimitivesProcessing strips CAN-TP PCI;
+        :Store RX PDU in CanTp database;
+        :KeyExchange calls GetRxPduData();
+        :Read UDS response bytes;
+      }
+    }
+
+  end fork
+
+  :Use UDS response to advance or fail state;
+
+  if (Key exchange step succeeded?) then (yes)
+    :Advance protocol state;
+  else (no)
+    :Set KEYEXCHANGE_FAIL;
+  endif
+}
+
+stop
+
+legend right
+  |= Color |= Data Path |= Meaning |
+  |<#E8F3FF>| Public Status Signals | Public state/progress for UI and services |
+  |<#F1F8E9>| Private Frame Datapool Signals | Packed CAN/UDS frame payload through private VSS paths |
+endlegend
+
+@enduml
