@@ -1,0 +1,85 @@
+@startuml sequence diagram
+
+actor "Caller" as Caller
+participant "key exchange library" as Library
+participant "anchor" as Anchor
+
+== configure library ==
+
+Caller -> Library : KeyExchangeService(anchor_idx)
+Caller -> Library : set_factory_private_key(private_key_blob)
+Caller -> Library : set_secoc_key(secoc_key)
+Caller -> Library : set_iv(iv)
+
+== start exchange ==
+
+Caller -> Library : start()
+Library -> Library : require_configured_properties()
+Library -> Library : build_default_session_request()
+Library --> Caller : request bytes
+
+== caller transport loop ==
+
+loop while request is not None and not Library.is_complete()
+  Caller -> Anchor : send request bytes
+  Anchor --> Caller : response bytes
+
+  Caller -> Library : handle_response(response bytes)
+
+  alt current step is DEFAULT_SESSION 
+    Library -> Library : process_default_session_response()
+    Library -> Library : build_extended_session_request()
+    Library --> Caller : next request
+  
+  else current step is EXTENDED_SESSION 
+    Library -> Library : process_extended_session_response()
+    Library -> Library : build_seed_request()
+    Library --> Caller : next request
+
+  else current step is REQUEST_SEED
+    Library -> Library : process_seed_response()
+    Library -> Library : extract seed
+    Library -> Library : generate_signature(seed, private_key_blob) : <signature>
+    Library -> Library : build_unlock_request()
+    Library --> Caller : next request <signature>
+
+  else current step is SECURITY_UNLOCK 
+    Library -> Library : process_unlock_response()
+    Library -> Library : generate_master_keypair()
+    Library -> Library : build_public_key_exchange_request()
+    Library -->Caller : next request <master_public_key>
+
+  else current step is PUBLIC_KEY_EXCHANGE 
+    Library -> Library : process_anchor_public_key_response() 
+    Library -> Library : extract anchor_public_key
+    Library -> Library : derive_shared_secret(anchor_public_key) : shared_secret
+    Library -> Library : hash_and_truncate_shared_secret(shared_secret) : secoc_AES_key
+    Library -> Library : AES_encrypt_secoc_key(secoc_AES_key, secoc_key, iv) : encrypted_key
+    Library -> Library : build_encrypted_key_delivery_request()
+    Library --> Caller : next request <encrypted_key>
+  
+  else current step is DELIVER_ENCRYPTED_KEY
+    Library -> Library : process_encrypted_key_ack()
+    Library -> Library : set state COMPLETE
+    Library --> Caller : None
+  end
+end
+
+== inspect result ==
+
+alt Library.is_complete()
+  Caller -> Library : get_encrypted_key()
+  Library --> Caller : encrypted_key
+
+  Caller -> Library : status()
+  Library --> Caller : COMPLETE
+
+else Library.is_failed()
+  Caller -> Library : get_last_error()
+  Library --> Caller : error
+
+  Caller -> Library : status()
+  Library --> Caller : FAILED
+end
+
+@enduml

@@ -1,192 +1,88 @@
-@startuml
-title Python Key Exchange Library - CAN Signals In / CAN Signals Out
+@startuml class
 
-skinparam packageStyle rectangle
-skinparam classAttributeIconSize 0
-skinparam shadowing false
+package "keyexchange_library" {
 
-skinparam class {
-  BackgroundColor #F8F9FB
-  BorderColor #374151
-  FontColor #111827
-}
+  class KeyExchangeService {
+    +anchor_idx: int
+    -factory_private_key: bytes | None
+    -secoc_key: bytes | None
+    -iv: bytes | None
 
-skinparam package {
-  BackgroundColor #FFFFFF
-  BorderColor #6B7280
-  FontColor #111827
-}
+    -state: KeyExchangeState
+    -current_step: KeyExchangeStep
 
-package "External Application" #E8F3FF {
-  class HostApp {
-    +read_can_signals() : dict[str, int]
-    +write_can_signals(signals: dict[str, int])
+    -seed: bytes | None
+    -signature: bytes | None
+
+    -master_public_key: bytes | None
+    -master_private_key: bytes | None
+    -anchor_public_key: bytes | None
+
+    -shared_secret: bytes | None
+    -truncated_shared_key: bytes | None
+    -encrypted_key: bytes | None
+
+    -last_request: bytes | None
+    -last_response: bytes | None
+    -last_error: Exception | None
+
+    +KeyExchangeService(anchor_idx)
+
+    +set_anchor_idx(anchor_idx: int): None
+    +set_factory_private_key(private_key_blob: bytes): None
+    +set_secoc_key(secoc_key: bytes): None
+    +set_iv(iv: bytes): None
+
+    +start(): bytes
+    +handle_response(response: bytes): bytes | None
+    +reset(): None
+
+    +status(): KeyExchangeState
+    +step(): KeyExchangeStep
+
+    +is_running(): bool
+    +is_complete(): bool
+    +is_failed(): bool
+
+    +get_encrypted_key(): bytes | None
+    +get_last_request(): bytes | None
+    +get_last_response(): bytes | None
+    +get_last_error(): Exception | None
+
+    -build_request_for_current_step(): bytes
+    -process_response_for_current_step(response: bytes): None
+
+    -generate_signature(seed: bytes): bytes
+    -generate_master_keypair(): None
+    -derive_shared_secret(anchor_public_key: bytes): bytes
+    -hash_and_truncate_shared_secret(shared_secret: bytes): bytes
+    -encrypt_secoc_key(): bytes
+
+    -require_configured_material(): None
+    -set_failed(error: Exception | str): None
   }
 
-  note right of HostApp
-    Owns:
-    - CAN hardware access
-    - KUKSA/DataBroker access
-    - files/config loading
-    - scheduling/timers
-    - logging policy
-  end note
-}
-
-package "key_exchange_py" #F1F8E9 {
-
-  class KeyExchangeEngine {
-    -state : KeyExchangeState
-    -anchor_id : int
-    -crypto : CryptoProvider
-    -translator : CanSignalTranslator
-    -protocol : KeyExchangeProtocol
-
-    +process(input_signals: dict[str, int]) : dict[str, int]
-    +reset(anchor_id: int)
-    +get_state() : KeyExchangeState
-  }
-
-  note right of KeyExchangeEngine
-    Main library facade.
-
-    Input:
-      CAN/VSS-style signal map
-
-    Output:
-      CAN/VSS-style signal map
-
-    It does not talk to CAN directly.
-  end note
-
-  enum KeyExchangeState {
-    INIT
-    REQUEST_DEFAULT_SESSION
-    CHECK_DEFAULT_SESSION
-    REQUEST_EXTENDED_SESSION
-    CHECK_EXTENDED_SESSION
+  enum KeyExchangeStep {
+    IDL
+    DEFAULT_SESSION
+    EXTENDED_SESSION
     REQUEST_SEED
-    CHECK_SEED
-    REQUEST_UNLOCK
-    CHECK_UNLOCK
-    CREATE_SHARE_KEY
-    CHECK_SHARE_KEY_RESPONSE
-    SEND_ENCRYPTED_KEY
-    CHECK_ENCRYPTED_KEY_RESPONSE
+    SECURITY_UNLOCK
+    PUBLIC_KEY_EXCHANGE
+    DELIVER_ENCRYPTED_KEY
     COMPLETE
     FAILED
   }
 
-  class CanSignalTranslator {
-    -request_paths : FramePathRegistry
-    -response_paths : FramePathRegistry
-
-    +decode_response_signals(anchor_id: int, signals: dict[str, int]) : bytes
-    +encode_request_signals(anchor_id: int, payload: bytes) : dict[str, int]
-    +pack_bytes_to_u64_chunks(payload: bytes) : list[int]
-    +unpack_u64_chunks_to_bytes(values: list[int]) : bytes
-  }
-
-  note right of CanSignalTranslator
-    Replaces KeyExchange_Pool_Api
-    and the relevant CanIf packing logic.
-
-    Converts:
-
-      signal map -> bytes
-      bytes -> signal map
-
-    It does not know cryptography.
-  end note
-
-  class FramePathRegistry {
-    +request_paths(anchor_id: int) : list[str]
-    +response_paths(anchor_id: int) : list[str]
-  }
-
-  note right of FramePathRegistry
-    Example request paths:
-
-    TesterPhysicalReqAnchor2_Frame1
-    ...
-    TesterPhysicalReqAnchor2_Frame8
-
-    Example response paths:
-
-    TesterPhysicalResAnchor2_Frame1
-    ...
-    TesterPhysicalResAnchor2_Frame8
-  end note
-
-  class KeyExchangeProtocol {
-    +next_request(state: KeyExchangeState, ctx: ExchangeContext) : bytes
-    +handle_response(state: KeyExchangeState, response: bytes, ctx: ExchangeContext) : KeyExchangeState
-    +is_positive_response(response: bytes, request_sid: int) : bool
-  }
-
-  note right of KeyExchangeProtocol
-    Owns UDS/key-exchange semantics.
-
-    Examples:
-    - 10 01 default session
-    - 10 03 extended session
-    - 27 65 request seed
-    - 27 66 + signature
-    - 31 01 FB 40 + public key
-    - 31 01 FB 41 + encrypted key
-  end note
-
-  class ExchangeContext {
-    +anchor_id : int
-    +seed : bytes
-    +master_public_key : bytes
-    +master_private_key : bytes
-    +anchor_public_key : bytes
-    +shared_key : bytes
-    +encrypted_key : bytes
-  }
-
-  class CryptoProvider {
-    +generate_ecdh_keypair() : EcdhKeyPair
-    +sign_seed(seed: bytes) : bytes
-    +derive_shared_key(anchor_public_key: bytes, private_key: bytes) : bytes
-    +hash_and_truncate(shared_key: bytes) : bytes
-    +encrypt_key(key_material: bytes, aes_key: bytes, iv: bytes) : bytes
-  }
-
-  note right of CryptoProvider
-    Encapsulates crypto only.
-
-    Equivalent repo behavior:
-    - ECDSA signature
-    - P-256 ECDH
-    - SHA-256 truncate
-    - AES-128-CBC encryption
-  end note
-
-  class EcdhKeyPair {
-    +public_key : bytes
-    +private_key : bytes
-  }
-
-  class SignalMap {
-    +signals : dict[str, int]
+  enum KeyExchangeState {
+    IDLE
+    RUNNING
+    COMPLETE
+    FAILED
   }
 }
 
-HostApp --> KeyExchangeEngine : input_signals
-KeyExchangeEngine --> HostApp : output_signals
-
-KeyExchangeEngine *-- CanSignalTranslator
-KeyExchangeEngine *-- KeyExchangeProtocol
-KeyExchangeEngine *-- CryptoProvider
-KeyExchangeEngine *-- ExchangeContext
-
-CanSignalTranslator *-- FramePathRegistry
-CanSignalTranslator ..> SignalMap
-
-KeyExchangeProtocol --> CryptoProvider
-KeyExchangeProtocol --> ExchangeContext
-CryptoProvider --> EcdhKeyPair
+KeyExchangeService --> KeyExchangeStep
+KeyExchangeService --> KeyExchangeState
 
 @enduml
