@@ -1,0 +1,41 @@
+@startuml revised sequence
+
+actor Caller
+participant "Python wrapper" as Python
+participant "KeyExchangeLibrary" as Cpp
+participant "python-can Bus" as Bus
+participant "Anchor" as Anchor
+
+== configure ==
+
+Caller -> Python : KeyExchangeService(anchor_idx, bus)
+Python -> Cpp : KexCreate(anchor_idx)
+Python -> Cpp : KexRegisterCanCallbacks(send_cb, recv_cb)
+Python -> Cpp : KexSetFactoryPrivateKey(...)
+Python -> Cpp : KexSetSecocKey(...)
+Python -> Cpp : KexSetIv(...)
+
+== run exchange ==
+
+Caller -> Python : run()
+Python -> Cpp : KexRun(timeout_ms)
+
+loop internal C++ state machine
+  Cpp -> Cpp : build UDS request for current step
+  Cpp -> Python : send_cb(can_id, data, len)
+  Python -> Bus : bus.send(can.Message(...))
+  Bus -> Anchor : CAN FD request
+
+  Anchor -> Bus : CAN FD response
+  Cpp -> Python : recv_cb(buffer, max_len, timeout)
+  Python -> Bus : bus.recv(timeout)
+  Python --> Cpp : can_id + response bytes
+
+  Cpp -> Cpp : validate response
+  Cpp -> Cpp : generate signature / ECDH / AES as needed
+end
+
+Cpp --> Python : status COMPLETE or FAILED
+Python --> Caller : result
+
+@enduml
