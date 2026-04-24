@@ -1,0 +1,7 @@
+# ninja log v7
+373	1814	7986213528958899	CMakeFiles/OperatorManagerWrapper.dir/Wrapper.cpp.obj	20043cf65f13506e
+416	1974	7986213530190292	CMakeFiles/OperatorManagerWrapper.dir/API.cpp.obj	993a560876c14376
+270	2890	7986213528422968	CMakeFiles/OperatorManagerWrapper.dir/Manager.cpp.obj	a9521a3e0e5f2462
+206	2948	7986213527250843	CMakeFiles/OperatorManagerWrapper.dir/Operator.cpp.obj	72f4ca149c06b53b
+2987	6066	7986213584034828	libOperatorManagerWrapper.dll	547658b8fc9c0f8a
+2987	6066	7986213584034828	libOperatorManagerWrapper.dll.a	547658b8fc9c0f8a

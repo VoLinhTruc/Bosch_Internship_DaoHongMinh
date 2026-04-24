@@ -1,0 +1,5 @@
+python-can==4.6.1
+can-isotp==2.0.7
+cryptography==44.0.1
+numpy==2.4.1
+matplotlib==3.10.8

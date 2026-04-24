@@ -1,0 +1,10 @@
+C:/Users/DMA8HC/Desktop/key_exchange_test/Bosch_Internship_DaoHongMinh/Key_Exchange_lib/lib/build/CMakeFiles/keyexchange_logger.dir
+C:/Users/DMA8HC/Desktop/key_exchange_test/Bosch_Internship_DaoHongMinh/Key_Exchange_lib/lib/build/CMakeFiles/keyexchange_crypto.dir
+C:/Users/DMA8HC/Desktop/key_exchange_test/Bosch_Internship_DaoHongMinh/Key_Exchange_lib/lib/build/CMakeFiles/key_exchange_library.dir
+C:/Users/DMA8HC/Desktop/key_exchange_test/Bosch_Internship_DaoHongMinh/Key_Exchange_lib/lib/build/CMakeFiles/test.dir
+C:/Users/DMA8HC/Desktop/key_exchange_test/Bosch_Internship_DaoHongMinh/Key_Exchange_lib/lib/build/CMakeFiles/edit_cache.dir
+C:/Users/DMA8HC/Desktop/key_exchange_test/Bosch_Internship_DaoHongMinh/Key_Exchange_lib/lib/build/CMakeFiles/rebuild_cache.dir
+C:/Users/DMA8HC/Desktop/key_exchange_test/Bosch_Internship_DaoHongMinh/Key_Exchange_lib/lib/build/CMakeFiles/list_install_components.dir
+C:/Users/DMA8HC/Desktop/key_exchange_test/Bosch_Internship_DaoHongMinh/Key_Exchange_lib/lib/build/CMakeFiles/install.dir
+C:/Users/DMA8HC/Desktop/key_exchange_test/Bosch_Internship_DaoHongMinh/Key_Exchange_lib/lib/build/CMakeFiles/install/local.dir
+C:/Users/DMA8HC/Desktop/key_exchange_test/Bosch_Internship_DaoHongMinh/Key_Exchange_lib/lib/build/CMakeFiles/install/strip.dir

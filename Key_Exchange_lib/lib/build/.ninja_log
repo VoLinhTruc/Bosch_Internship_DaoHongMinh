@@ -1,0 +1,10 @@
+# ninja log v7
+94	670	7987067184220024	CMakeFiles/keyexchange_crypto.dir/third_party/cryptography/AES128.cpp.obj	25ebe0709140cd3f
+80	1175	7987067184063412	CMakeFiles/keyexchange_logger.dir/third_party/logger/logger.cpp.obj	90558cca8c3563db
+156	1433	7987067184940208	CMakeFiles/key_exchange_library.dir/src/KeyExchange_Interface.cpp.obj	d0449b48730f9395
+1178	1838	7987067195048179	libkeyexchange_logger.a	736803bab396e963
+116	2022	7987067184432709	CMakeFiles/keyexchange_crypto.dir/third_party/cryptography/cryptography.cpp.obj	7f0d461c3bb8b268
+134	2215	7987067184655146	CMakeFiles/key_exchange_library.dir/src/KeyExchange_Service.cpp.obj	244857d2b9443fe3
+2024	2425	7987067203502708	libkeyexchange_crypto.a	3824085b479cd120
+2425	2675	7987067209686560	libkey_exchange_library.dll	53f18312dd7d7416
+2425	2675	7987067209686560	libkey_exchange_library.dll.a	53f18312dd7d7416

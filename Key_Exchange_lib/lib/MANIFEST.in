@@ -1,0 +1,2 @@
+recursive-include src/keyexchange *.dll *.so *.dylib
+recursive-include src/keyexchange/bin *

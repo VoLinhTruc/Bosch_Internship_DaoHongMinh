@@ -1,0 +1,11 @@
+MANIFEST.in
+README.md
+pyproject.toml
+src/keyexchange/__init__.py
+src/keyexchange/_native.py
+src/keyexchange/libkey_exchange_library.dll
+src/keyexchange.egg-info/PKG-INFO
+src/keyexchange.egg-info/SOURCES.txt
+src/keyexchange.egg-info/dependency_links.txt
+src/keyexchange.egg-info/top_level.txt
+test/test.py
