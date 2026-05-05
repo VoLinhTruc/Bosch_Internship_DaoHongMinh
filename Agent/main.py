@@ -89,6 +89,10 @@ def read_file(path: str) -> str:
 
     return content
 
+# save guards to save time and token
+MAX_WRITE_CHARS = 50_000
+MAX_FILE_SIZE_CHARS = 200_000
+
 
 def write_file(path: str, content: str, overwrite: bool) -> str:
     """
@@ -100,6 +104,12 @@ def write_file(path: str, content: str, overwrite: bool) -> str:
         overwrite: Set to true only when the user explicitly wants to replace an existing file.
     """
     file_path = safe_path(path)
+
+    if len(content) > MAX_WRITE_CHARS:
+        return (
+            f"Content is too large to write in one call. "
+            f"Limit is {MAX_WRITE_CHARS} characters."
+        )
 
     if file_path.exists() and not overwrite:
         return (
@@ -113,6 +123,10 @@ def write_file(path: str, content: str, overwrite: bool) -> str:
     relative_path = file_path.relative_to(WORKSPACE)
     return f"successfully wrote file: {relative_path}"
 
+# save guards to save time and token
+MAX_APPEND_CHARS = 10_000
+MAX_FILE_SIZE_CHARS = 200_000
+
 
 def append_file(path: str, content: str) -> str:
     """
@@ -124,8 +138,27 @@ def append_file(path: str, content: str) -> str:
     """
     file_path = safe_path(path)
 
+    if len(content) > MAX_APPEND_CHARS:
+        return (
+            f"content is too large to append in one call. "
+            f"limit is {MAX_APPEND_CHARS} characters."
+        )
+
     if file_path.exists() and not file_path.is_file():
         return f"path is not a file: {path}"
+
+    current_size = 0
+    if file_path.exists():
+        try:
+            current_size = len(file_path.read_text(encoding="utf-8"))
+        except UnicodeDecodeError:
+            return "could not append because the existing file is not UTF-8 text."
+
+    if current_size + len(content) > MAX_FILE_SIZE_CHARS:
+        return (
+            f"append would make the file too large. "
+            f"limit is {MAX_FILE_SIZE_CHARS} characters."
+        )
 
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -134,6 +167,8 @@ def append_file(path: str, content: str) -> str:
             file.write(content)
     except UnicodeEncodeError:
         return "could not append content as UTF-8 text."
+    except OSError as error:
+        return f"could not append to file: {error}"
 
     relative_path = file_path.relative_to(WORKSPACE)
     return f"successfully appended to file: {relative_path}"
@@ -151,28 +186,46 @@ def search_files(keyword: str) -> str:
 
     matches = []
     max_matches = 50
+    max_line_length = 1000
+
     lowered_keyword = keyword.lower()
 
-    for file_path in sorted(path for path in WORKSPACE.rglob("*") if path.is_file()):
+    for file_path in sorted(WORKSPACE.rglob("*")):
+        if not file_path.is_file():
+            continue
+
         try:
-            relative_path = file_path.relative_to(WORKSPACE)
+            resolved_path = file_path.resolve()
+            resolved_path.relative_to(WORKSPACE)
         except ValueError:
             continue
 
         try:
-            lines = file_path.read_text(encoding="utf-8").splitlines()
+            with resolved_path.open("r", encoding="utf-8") as file:
+                for line_number, line in enumerate(file, start=1):
+                    line_without_newline = line.rstrip("\n")
+
+                    if lowered_keyword in line_without_newline.lower():
+                        if len(line_without_newline) > max_line_length:
+                            shown_line = line_without_newline[:max_line_length] + "..."
+                        else:
+                            shown_line = line_without_newline
+
+                        relative_path = resolved_path.relative_to(WORKSPACE)
+                        matches.append(
+                            f"{relative_path}:{line_number}: {shown_line}"
+                        )
+
+                        if len(matches) >= max_matches:
+                            return "\n".join(matches) + "\n\n[TRUNCATED: too many matches]"
+
         except UnicodeDecodeError:
             continue
-
-        for line_number, line in enumerate(lines, start=1):
-            if lowered_keyword in line.lower():
-                matches.append(f"{relative_path}:{line_number}: {line}")
-
-                if len(matches) >= max_matches:
-                    return "\n".join(matches) + "\n\n[TRUNCATED: too many matches]"
+        except OSError:
+            continue
 
     if not matches:
-        return f"no matches found for: {keyword}"
+        return f"No matches found for: {keyword}"
 
     return "\n".join(matches)
 
