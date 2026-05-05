@@ -1,0 +1,15 @@
+{
+  "model": "gemini-3-flash-preview",
+  "limits": {
+    "max_read_chars": 12000,
+    "max_write_chars": 50000,
+    "max_append_chars": 10000,
+    "max_file_size_chars": 200000,
+    "max_matches": 50,
+    "max_line_length": 1000
+  },
+  "safety": {
+    "allow_overwrite": true,
+    "allow_outside_workspace": false
+  }
+}
