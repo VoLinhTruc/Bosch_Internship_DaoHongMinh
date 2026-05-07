@@ -1,12 +1,13 @@
-from google import genai
-
-from agent import ask_agent
-from config import MODEL, WORKSPACE
+from agent import Agent
+from config import MODEL, PROVIDER, WORKSPACE
+from provider import create_provider
 
 
 def main() -> None:
-    client = genai.Client()
+    provider = create_provider()
+    agent = Agent(provider)
 
+    print(f"provider: {PROVIDER}")
     print(f"model: {MODEL}")
     print(f"workspace: {WORKSPACE}")
     print("type 'exit' to quit.\n")
@@ -21,7 +22,7 @@ def main() -> None:
             continue
 
         try:
-            answer = ask_agent(client, user_message)
+            answer = agent.ask(user_message)
         except Exception as error:
             answer = f"error: {type(error).__name__}: {error}"
 

@@ -1,5 +1,11 @@
 {
+  "provider": "gemini",
   "model": "gemini-3-flash-preview",
+  "base_url": null,
+  "api_key_env": "KEY",
+  "temperature": 0.2,
+  "max_tool_rounds": 5,
+
   "limits": {
     "max_read_chars": 12000,
     "max_write_chars": 50000,

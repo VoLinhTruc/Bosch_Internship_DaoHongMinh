@@ -5,17 +5,20 @@ Main Components
 ---------------
 
 ``main.py``
-    creates a ``genai.Client``, prints the active model and workspace path, then loops
-    over user messages until the user types ``exit`` or ``quit``.
+    creates the configured provider, prints the active provider, model, and
+    workspace path, then loops over user messages until the user types ``exit``
+    or ``quit``.
 
 ``agent.py``
-    contains ``ask_agent()``, the model invocation wrapper. It calls
-    ``client.models.generate_content()`` with:
+    contains the provider-independent ``Agent`` wrapper. It delegates user
+    messages to the selected provider.
 
-    * the configured model from ``config.MODEL``
-    * the user message as the content
-    * the system instruction from ``prompts.SYSTEM_INSTRUCTION``
-    * the file tool list from ``tools.FILE_TOOLS``
+``provider/``
+    contains model API adapters. ``gemini_provider.py`` uses the Google Gemini
+    SDK. ``openai_compatible_provider.py`` uses the OpenAI chat-completions
+    interface and can be pointed at OpenAI-compatible local servers such as LM
+    Studio or Ollama. ``ollama_provider.py`` uses Ollama's native ``/api/chat``
+    endpoint.
 
 ``config.py``
     loads environment variables with ``python-dotenv``, defines project paths,
@@ -28,12 +31,20 @@ Main Components
     workspace path so the model knows its allowed boundary.
 
 ``settings.json``
-    Stores model selection and tool limits. The current configuration includes
-    maximum sizes for reading, writing, appending, search results, and displayed
-    line length.
+    Stores provider selection, model selection, local API base URL, API key
+    environment variable name, generation options, and tool limits.
 
 ``tools/__init__.py``
-    Imports the individual tool functions and exposes them as ``FILE_TOOLS``.
+    Imports the individual tool functions and exposes them as ``FILE_TOOLS`` for
+    providers that accept Python callables directly.
+
+``tools/registry.py``
+    Maps portable tool names to Python functions so provider adapters can
+    execute structured tool calls.
+
+``tools/schemas.py``
+    Defines OpenAI-compatible JSON tool schemas for providers that require
+    function declarations.
 
 ``tools/file_tools.py``
     Implements the model-callable file operations.
@@ -46,15 +57,16 @@ Runtime Flow
 ------------
 
 1. ``python main.py`` starts the command-line interface.
-2. ``main()`` creates a ``genai.Client``.
+2. ``main()`` creates the configured provider with ``provider.create_provider()``.
 3. the user enters a message at the ``You>`` prompt.
-4. ``main()`` passes the message to ``ask_agent()``.
-5. ``ask_agent()`` sends the message, system instruction, and tool declarations
-   to Gemini.
-6. gemini may answer directly or call one of the registered file tools.
-7. tool functions validate paths and limits, perform the requested file
+4. ``main()`` passes the message to ``Agent.ask()``.
+5. ``Agent.ask()`` delegates to the configured provider.
+6. The provider sends the message, system instruction, and tool declarations to
+   the selected model API.
+7. The model may answer directly or call one of the registered file tools.
+8. tool functions validate paths and limits, perform the requested file
    operation, and return a text result to the model.
-8. ``main()`` prints the final response under the ``Agent>`` prompt.
+9. ``main()`` prints the final response under the ``Agent>`` prompt.
 
 Tool Architecture
 -----------------
@@ -114,7 +126,7 @@ The runtime configuration is split between environment variables and
 ``settings.json``.
 
 Environment
-    The Gemini API key is expected in ``.env`` as ``GEMINI_API_KEY``. The
+    The Gemini API key is expected in ``.env`` as ``KEY``. The
     ``load_dotenv()`` call in ``config.py`` loads it before the client is used.
 
 Settings file
@@ -134,4 +146,3 @@ To add another tool:
 4. import the function in ``tools/__init__.py``.
 5. add it to the ``FILE_TOOLS`` list.
 6. update ``prompts.py`` if the model needs new behavioral rules.
-

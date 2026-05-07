@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from dotenv import load_dotenv
 
@@ -13,9 +14,15 @@ WORKSPACE.mkdir(parents=True, exist_ok=True)
 SETTINGS_PATH = BASE_DIR / "settings.json"
 
 with SETTINGS_PATH.open("r", encoding="utf-8") as file:
-    SETTINGS = json.load(file)
+    SETTINGS = cast(dict[str, Any], json.load(file))
 
+PROVIDER = SETTINGS["provider"]
 MODEL = SETTINGS["model"]
+BASE_URL = SETTINGS.get("base_url")
+API_KEY_ENV = SETTINGS.get("api_key_env")
+TEMPERATURE = SETTINGS.get("temperature", 0.2)
+MAX_TOOL_ROUNDS = SETTINGS.get("max_tool_rounds", 5)
+OLLAMA_OPTIONS = cast(dict[str, Any], SETTINGS.get("ollama_options", {}))
 
 MAX_READ_CHARS = SETTINGS["limits"]["max_read_chars"]
 MAX_WRITE_CHARS = SETTINGS["limits"]["max_write_chars"]
