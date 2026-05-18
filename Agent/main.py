@@ -1,6 +1,15 @@
-from agent import Agent
-from config import MODEL, PROVIDER, WORKSPACE
-from provider import create_provider
+from pathlib import Path
+import sys
+
+
+ROOT_DIR = Path(__file__).resolve().parent
+SRC_DIR = ROOT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from personal_agent.agent import Agent
+from personal_agent.config import MODEL, PROVIDER, WORKSPACE
+from personal_agent.providers import create_provider
 
 
 def main() -> None:

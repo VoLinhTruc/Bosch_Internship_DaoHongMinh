@@ -1,4 +1,4 @@
-from provider.base import AIProvider
+from personal_agent.providers.base import AIProvider
 
 
 class Agent:

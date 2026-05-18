@@ -13,7 +13,7 @@ Main Components
     contains the provider-independent ``Agent`` wrapper. It delegates user
     messages to the selected provider.
 
-``provider/``
+``src/personal_agent/providers/``
     contains model API adapters. ``gemini_provider.py`` uses the Google Gemini
     SDK. ``openai_compatible_provider.py`` uses the OpenAI chat-completions
     interface and can be pointed at OpenAI-compatible local servers such as LM
@@ -34,22 +34,22 @@ Main Components
     Stores provider selection, model selection, local API base URL, API key
     environment variable name, generation options, and tool limits.
 
-``tools/__init__.py``
+``src/personal_agent/tools/__init__.py``
     Imports the individual tool functions and exposes them as ``FILE_TOOLS`` for
     providers that accept Python callables directly.
 
-``tools/registry.py``
+``src/personal_agent/tools/registry.py``
     Maps portable tool names to Python functions so provider adapters can
     execute structured tool calls.
 
-``tools/schemas.py``
+``src/personal_agent/tools/schemas.py``
     Defines OpenAI-compatible JSON tool schemas for providers that require
     function declarations.
 
-``tools/file_tools.py``
+``src/personal_agent/tools/file_tools.py``
     Implements the model-callable file operations.
 
-``tools/path_safety.py``
+``src/personal_agent/safety/path_safety.py``
     Provides ``safe_path()``, the central workspace-boundary check used by the
     file tools.
 
@@ -63,15 +63,44 @@ Runtime Flow
 5. ``Agent.ask()`` delegates to the configured provider.
 6. The provider sends the message, system instruction, and tool declarations to
    the selected model API.
-7. The model may answer directly or call one of the registered file tools.
+7. The model may answer directly or call one of the registered tools.
 8. tool functions validate paths and limits, perform the requested file
-   operation, and return a text result to the model.
+   operation or local action, and return a text result to the model.
 9. ``main()`` prints the final response under the ``Agent>`` prompt.
 
 Tool Architecture
 -----------------
 
-The agent exposes five file tools:
+The agent exposes these tool groups:
+
+``file_tools``
+    Workspace-scoped file listing, reading, line-window reading, writing,
+    exact text replacement, appending, and searching.
+
+``note_tools``
+    Local Markdown note creation, tagged note saving, listing, reading, and
+    searching.
+
+``task_tools``
+    Local task creation, listing, updating, and completion.
+
+``calendar_tools``
+    Local calendar event creation, listing, updating, and cancellation.
+
+``email_tools``
+    Local email draft creation, listing, reading, updating, and sent-state
+    marking. These tools do not send real email.
+
+``browser_tools``
+    Public HTTP(S) URL fetching with readable text extraction.
+
+``git_tools``
+    Read-only git status, diff, and log inspection.
+
+``system_tools``
+    Current time and basic runtime information.
+
+The file tools are:
 
 ``list_files(path)``
     Lists files and folders under a relative path inside ``workspace``. It
@@ -139,10 +168,10 @@ Extension Points
 
 To add another tool:
 
-1. implement a function with a clear docstring in ``tools/file_tools.py`` or a
-   new module under ``tools``.
+1. implement a function with a clear docstring in ``src/personal_agent/tools``.
 2. use ``safe_path()`` for any path that touches the filesystem.
 3. enforce any size, encoding, or overwrite limits needed by the operation.
-4. import the function in ``tools/__init__.py``.
-5. add it to the ``FILE_TOOLS`` list.
-6. update ``prompts.py`` if the model needs new behavioral rules.
+4. import the function in ``tools/__init__.py`` and add it to ``AGENT_TOOLS``.
+5. add it to ``tools/registry.py`` for structured provider tool execution.
+6. add an OpenAI-compatible declaration in ``tools/schemas.py``.
+7. update ``prompts.py`` if the model needs new behavioral rules.

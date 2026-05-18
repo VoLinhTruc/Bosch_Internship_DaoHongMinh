@@ -3,12 +3,18 @@ from typing import Any, cast
 
 import httpx
 
-from config import BASE_URL, MAX_TOOL_ROUNDS, MODEL, OLLAMA_OPTIONS, TEMPERATURE
-from prompts import SYSTEM_INSTRUCTION
-from tools.registry import TOOL_REGISTRY
-from tools.schemas import OPENAI_TOOLS
+from personal_agent.config import (
+    BASE_URL,
+    MAX_TOOL_ROUNDS,
+    MODEL,
+    OLLAMA_OPTIONS,
+    TEMPERATURE,
+)
+from personal_agent.prompts import SYSTEM_INSTRUCTION
+from personal_agent.tools.registry import TOOL_REGISTRY
+from personal_agent.tools.schemas import OPENAI_TOOLS
 
-from provider.base import AIProvider
+from personal_agent.providers.base import AIProvider
 
 
 class OllamaProvider(AIProvider):

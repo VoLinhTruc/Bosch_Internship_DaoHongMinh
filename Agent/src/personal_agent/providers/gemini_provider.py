@@ -3,11 +3,11 @@ import os
 from google import genai
 from google.genai import types
 
-from config import API_KEY_ENV, MODEL, TEMPERATURE
-from prompts import SYSTEM_INSTRUCTION
-from tools import FILE_TOOLS
+from personal_agent.config import API_KEY_ENV, MODEL, TEMPERATURE
+from personal_agent.prompts import SYSTEM_INSTRUCTION
+from personal_agent.tools import FILE_TOOLS
 
-from provider.base import AIProvider
+from personal_agent.providers.base import AIProvider
 
 
 class GeminiProvider(AIProvider):

@@ -2,12 +2,18 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*_args: object, **_kwargs: object) -> bool:
+        return False
 
 
-load_dotenv()
+PACKAGE_DIR = Path(__file__).resolve().parent
+BASE_DIR = PACKAGE_DIR.parents[1]
 
-BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+
 WORKSPACE = (BASE_DIR / "workspace").resolve()
 WORKSPACE.mkdir(parents=True, exist_ok=True)
 

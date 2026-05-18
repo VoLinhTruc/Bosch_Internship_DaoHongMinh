@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from config import WORKSPACE
+from personal_agent.config import WORKSPACE
 
 
 def safe_path(path: str) -> Path:

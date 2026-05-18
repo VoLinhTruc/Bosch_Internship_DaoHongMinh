@@ -1,4 +1,4 @@
-from config import (
+from personal_agent.config import (
     WORKSPACE,
     MAX_READ_CHARS,
     MAX_WRITE_CHARS,
@@ -7,7 +7,7 @@ from config import (
     MAX_MATCHES,
     MAX_LINE_LENGTH,
 )
-from tools.path_safety import safe_path
+from personal_agent.safety.path_safety import safe_path
 
 
 def list_files(path: str) -> str:
@@ -66,6 +66,54 @@ def read_file(path: str) -> str:
     return content
 
 
+def read_file_window(path: str, start_line: int, line_count: int) -> str:
+    """
+    Read a line window from a text file in the workspace.
+
+    Args:
+        path: Relative file path inside the workspace.
+        start_line: One-based line number where reading starts.
+        line_count: Number of lines to return.
+    """
+    file_path = safe_path(path)
+
+    if start_line < 1:
+        return "start_line must be 1 or greater."
+    if line_count < 1:
+        return "line_count must be 1 or greater."
+
+    capped_line_count = min(line_count, 500)
+
+    if not file_path.exists():
+        return f"file does not exist: {path}"
+
+    if not file_path.is_file():
+        return f"path is not a file: {path}"
+
+    try:
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        return "could not read file as UTF-8 text."
+    except OSError as error:
+        return f"could not read file: {error}"
+
+    if start_line > len(lines):
+        return f"start_line is past end of file. file has {len(lines)} lines."
+
+    end_line = min(start_line + capped_line_count - 1, len(lines))
+    selected = lines[start_line - 1:end_line]
+    numbered = [
+        f"{line_number}: {line}"
+        for line_number, line in enumerate(selected, start=start_line)
+    ]
+    result = "\n".join(numbered)
+
+    if len(result) > MAX_READ_CHARS:
+        return result[:MAX_READ_CHARS] + "\n\n[TRUNCATED: window is too large]"
+
+    return result
+
+
 def write_file(path: str, content: str, overwrite: bool) -> str:
     """
     Write a text file inside the workspace.
@@ -104,6 +152,60 @@ def write_file(path: str, content: str, overwrite: bool) -> str:
 
     relative_path = file_path.relative_to(WORKSPACE)
     return f"successfully wrote file: {relative_path}"
+
+
+def replace_text(path: str, old_text: str, new_text: str, expected_replacements: int = 1) -> str:
+    """
+    Replace exact text in a UTF-8 workspace file.
+
+    Args:
+        path: Relative file path inside the workspace.
+        old_text: Exact text to replace.
+        new_text: Replacement text.
+        expected_replacements: Expected number of occurrences to replace.
+    """
+    file_path = safe_path(path)
+
+    if not old_text:
+        return "old_text must not be empty."
+    if expected_replacements < 1:
+        return "expected_replacements must be 1 or greater."
+    if len(new_text) > MAX_WRITE_CHARS:
+        return f"replacement text is too large. limit is {MAX_WRITE_CHARS} characters."
+
+    if not file_path.exists():
+        return f"file does not exist: {path}"
+
+    if not file_path.is_file():
+        return f"path is not a file: {path}"
+
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return "could not update file because it is not UTF-8 text."
+    except OSError as error:
+        return f"could not read file: {error}"
+
+    actual_replacements = content.count(old_text)
+    if actual_replacements == 0:
+        return "old_text was not found. No changes were made."
+    if actual_replacements != expected_replacements:
+        return (
+            f"found {actual_replacements} occurrences, expected {expected_replacements}. "
+            "No changes were made."
+        )
+
+    updated = content.replace(old_text, new_text)
+    if len(updated) > MAX_FILE_SIZE_CHARS:
+        return f"replacement would make file too large. limit is {MAX_FILE_SIZE_CHARS} characters."
+
+    try:
+        file_path.write_text(updated, encoding="utf-8")
+    except OSError as error:
+        return f"could not write file: {error}"
+
+    relative_path = file_path.relative_to(WORKSPACE)
+    return f"successfully replaced {actual_replacements} occurrence(s) in file: {relative_path}"
 
 
 def append_file(path: str, content: str) -> str:

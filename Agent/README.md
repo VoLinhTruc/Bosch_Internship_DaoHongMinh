@@ -1,6 +1,35 @@
-# Provider File Agent
+# Personal Agent
 
-AI agent to read and write files in `./workspace`.
+Local personal assistant scaffold with provider support, workspace-safe file
+tools, local productivity tools, URL fetching, git inspection, and safety hooks.
+
+## Layout
+
+```text
+Agent/
+├── main.py
+├── src/personal_agent/
+│   ├── agent.py
+│   ├── config.py
+│   ├── prompts.py
+│   ├── memory/
+│   ├── providers/
+│   ├── tools/
+│   └── safety/
+├── docs/
+├── data/
+├── workspace/
+└── settings.json
+```
+
+The active file tools are scoped to `./workspace`. Notes, tasks, calendar
+events, and email drafts are stored locally under `./data`; email tools only
+manage drafts and never send real email. Browser fetching is limited to public
+HTTP(S) URLs, and git tools are read-only inspection helpers.
+
+Implemented next-stage tools include line-window file reads, exact text
+replacement, tagged notes, and task creation/listing/updating for a more
+OpenClaw-style personal assistant foundation.
 
 ## Setup
 

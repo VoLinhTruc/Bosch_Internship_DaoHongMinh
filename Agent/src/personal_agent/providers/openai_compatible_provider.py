@@ -4,12 +4,12 @@ from typing import Any, cast
 
 from openai import OpenAI
 
-from config import API_KEY_ENV, BASE_URL, MAX_TOOL_ROUNDS, MODEL, TEMPERATURE
-from prompts import SYSTEM_INSTRUCTION
-from tools.registry import TOOL_REGISTRY
-from tools.schemas import OPENAI_TOOLS
+from personal_agent.config import API_KEY_ENV, BASE_URL, MAX_TOOL_ROUNDS, MODEL, TEMPERATURE
+from personal_agent.prompts import SYSTEM_INSTRUCTION
+from personal_agent.tools.registry import TOOL_REGISTRY
+from personal_agent.tools.schemas import OPENAI_TOOLS
 
-from provider.base import AIProvider
+from personal_agent.providers.base import AIProvider
 
 
 class OpenAICompatibleProvider(AIProvider):
