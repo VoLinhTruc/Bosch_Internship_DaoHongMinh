@@ -1,8 +1,8 @@
 {
-  "provider": "lm_studio",
-  "model": "auto",
-  "base_url": "http://localhost:1234/v1",
-  "api_key_env": "LM_STUDIO_API_KEY",
+  "provider": "gemini",
+  "model": "gemini-3-flash-preview",
+  "base_url": null,
+  "api_key_env": "KEY",
   "temperature": 0.2,
   "use_tools": true,
   "max_tool_rounds": 5,

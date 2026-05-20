@@ -7,7 +7,7 @@ def create_provider():
 
         return GeminiProvider()
 
-    if PROVIDER == "openai_compatible":
+    if PROVIDER in {"openai_compatible", "lm_studio"}:
         from personal_agent.providers.openai_compatible_provider import (
             OpenAICompatibleProvider,
         )

@@ -18,6 +18,9 @@ def main() -> None:
 
     print(f"provider: {PROVIDER}")
     print(f"model: {MODEL}")
+    effective_model = getattr(provider, "model", MODEL)
+    if effective_model != MODEL:
+        print(f"effective model: {effective_model}")
     print(f"workspace: {WORKSPACE}")
     print("type 'exit' to quit.\n")
 

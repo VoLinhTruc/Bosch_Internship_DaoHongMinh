@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from typing import Any, cast
 
@@ -24,9 +25,12 @@ with SETTINGS_PATH.open("r", encoding="utf-8") as file:
 
 PROVIDER = SETTINGS["provider"]
 MODEL = SETTINGS["model"]
-BASE_URL = SETTINGS.get("base_url")
 API_KEY_ENV = SETTINGS.get("api_key_env")
+BASE_URL = SETTINGS.get("base_url")
+if PROVIDER == "lm_studio":
+    BASE_URL = os.getenv("LM_STUDIO_BASE_URL", BASE_URL)
 TEMPERATURE = SETTINGS.get("temperature", 0.2)
+USE_TOOLS = SETTINGS.get("use_tools", True)
 MAX_TOOL_ROUNDS = SETTINGS.get("max_tool_rounds", 5)
 OLLAMA_OPTIONS = cast(dict[str, Any], SETTINGS.get("ollama_options", {}))
 

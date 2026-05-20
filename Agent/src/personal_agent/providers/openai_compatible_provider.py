@@ -4,7 +4,14 @@ from typing import Any, cast
 
 from openai import OpenAI
 
-from personal_agent.config import API_KEY_ENV, BASE_URL, MAX_TOOL_ROUNDS, MODEL, TEMPERATURE
+from personal_agent.config import (
+    API_KEY_ENV,
+    BASE_URL,
+    MAX_TOOL_ROUNDS,
+    MODEL,
+    TEMPERATURE,
+    USE_TOOLS,
+)
 from personal_agent.prompts import SYSTEM_INSTRUCTION
 from personal_agent.tools.registry import TOOL_REGISTRY
 from personal_agent.tools.schemas import OPENAI_TOOLS
@@ -21,6 +28,7 @@ class OpenAICompatibleProvider(AIProvider):
             client_args["base_url"] = BASE_URL
 
         self.client = OpenAI(**client_args)
+        self.model = self._select_model()
 
     def ask(self, user_message: str) -> str:
         messages = [
@@ -29,12 +37,15 @@ class OpenAICompatibleProvider(AIProvider):
         ]
 
         for _ in range(MAX_TOOL_ROUNDS):
-            response = self.client.chat.completions.create(
-                model=MODEL,
-                messages=messages,
-                tools=OPENAI_TOOLS,
-                temperature=TEMPERATURE,
-            )
+            request_args: dict[str, Any] = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": TEMPERATURE,
+            }
+            if USE_TOOLS:
+                request_args["tools"] = OPENAI_TOOLS
+
+            response = self.client.chat.completions.create(**request_args)
             message = response.choices[0].message
             tool_calls = message.tool_calls or []
 
@@ -79,3 +90,32 @@ class OpenAICompatibleProvider(AIProvider):
             return str(tool(**tool_arguments))
         except Exception as error:
             return f"tool error in {name}: {type(error).__name__}: {error}"
+
+    def _select_model(self) -> str:
+        if MODEL != "auto":
+            return MODEL
+
+        try:
+            models = self.client.models.list()
+        except Exception as error:
+            raise RuntimeError(
+                "could not list models from the OpenAI-compatible server. "
+                f"Tried base URL: {BASE_URL or '[default OpenAI endpoint]'}. "
+                "For LM Studio, start the server, load a chat model, and set "
+                "LM_STUDIO_BASE_URL when the model is running on another device."
+            ) from error
+
+        model_ids = [model.id for model in models.data]
+        chat_model_ids = [
+            model_id
+            for model_id in model_ids
+            if "embed" not in model_id.lower() and "nomic" not in model_id.lower()
+        ]
+
+        if not chat_model_ids:
+            raise RuntimeError(
+                "no chat model is loaded on the OpenAI-compatible server. "
+                f"Available models: {', '.join(model_ids) or '[none]'}"
+            )
+
+        return chat_model_ids[0]
